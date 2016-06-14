@@ -1,0 +1,97 @@
+---
+title: "2015 Shooting Report"
+author: "Matthew Bond"
+output: html_document
+---
+
+``` {r, echo=FALSE, message=FALSE}
+library(dplyr)
+library(knitr)
+library(plotly)
+
+shooting_data <- read.csv("data/Mass-Shooting-Data.csv")
+
+#Summary Information
+total_shootings <- nrow(shooting_data)
+total_killed <- sum(shooting_data$killed, na.rm = FALSE)
+total_injured <- sum(shooting_data$injured, na.rm = FALSE)
+
+shooting_summary <- group_by(shooting_data, state) %>% 
+          summarise("Number of Shootings" = n(), "People Killed" = sum(killed), "People Injured" = sum(injured))
+shooting_summary_table <- kable(shooting_summary, caption = "Shooting Statistics by State")
+number_of_states <- nrow(shooting_summary)
+state_shootings_count <- count(shooting_data, state)
+state_most_shootings <- as.character(state_shootings_count$state[state_shootings_count$n == max(state_shootings_count$n)])
+```
+
+With mass shootings becoming a common occurance throughout the USA it is becoming more and more important to track when and where these acts of violence are taking place. In 2015 there were `r total_shootings` shootings that took a total of `r total_killed` lives. In addition to those `r total_killed`, another `r total_injured` people were injured in these tragic events. These shootings took place in `r number_of_states` states with `r state_most_shootings` having the most shootings.
+
+`r shooting_summary_table`
+
+``` {r, echo=FALSE}
+#Description of particular incident
+worst_shooting_city <- as.character(shooting_data$city[shooting_data$killed == max(shooting_data$killed)])
+worst_shooting_killed <- shooting_data$killed[shooting_data$killed == max(shooting_data$killed)]
+worst_shooting_injured <- shooting_data$injured[shooting_data$killed == max(shooting_data$killed)]
+worst_shooting_date <- as.character(shooting_data$date[shooting_data$killed == max(shooting_data$killed)])
+```
+
+The single worst attack took place on `r worst_shooting_date` in `r worst_shooting_city`, `r worst_shooting_killed` people were killed and `r worst_shooting_injured` were injured.
+
+``` {r, echo=FALSE, message=FALSE, warning=FALSE}
+# Interactive Map
+map_stats <- shooting_data
+
+map_stats$hover <- paste(map_stats$city, "<br>Killed: ", map_stats$killed, "<br>Injured: ", map_stats$injured)
+
+Month <- c("January", "Febuary", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
+
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showland = TRUE,
+  landcolor = toRGB("grey85"),
+  subunitwidth = 1,
+  countrywidth = 1,
+  subunitcolor = toRGB("black"),
+  countrycolor = toRGB("black")
+)
+
+plot_ly(map_stats, lon = lng, lat = lat, text = hover,
+        marker = list(size = (killed + injured)),
+        color = killed, type = 'scattergeo', locationmode = 'USA-states') %>%
+layout(title = "2015 Shootings", geo = g)  
+
+#Interactive Plot
+months <- shooting_data
+months$date <- as.Date(months$date, "%B %d, %Y")
+months$date <- as.character(months$date, format = "%m")
+months <- group_by(months, date) %>% summarise(sum(killed), sum(injured))
+Casualties <- c(months$`sum(killed)`)
+
+month_data <- plot_ly(
+  x = Month,  
+  y = Casualties,
+  name = "Killed",
+  type = "bar",
+  filename="r-docs/month-bar-graph"
+)
+
+month_data2 <- add_trace(
+  month_data,
+  x = c("January", "Febuary", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"), 
+  y = c(months$`sum(injured)`),
+  name = "Injured",
+  filename="r-docs/month-bar-graph"
+)
+
+layout(title = "2015 Shootings Casualties by Month", month_data2, barmode = "stack")
+```
+
+
+
+
+
+
+
